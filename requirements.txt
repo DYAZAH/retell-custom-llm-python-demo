@@ -26,5 +26,5 @@ wsproto==1.2.0
 zipp==3.17.0
 retell-sdk==4.0.0
 fastapi==0.100.1
-# uvicorn==0.21.1
+uvicorn==0.21.1
 python-multipart==0.0.9
