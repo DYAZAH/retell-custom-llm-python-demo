@@ -42,37 +42,43 @@ retell = Retell(api_key=os.environ["RETELL_API_KEY"])
 async def handle_webhook(request: Request):
     try:
         post_data = await request.json()
+        signature_header = request.headers.get("X-Retell-Signature")
 
-        if request.headers.get("X-Retell-Signature") == "test-bypass":
+        # Bypass signature verification for testing
+        if signature_header == "test-bypass":
             print("Bypassing signature check for testing.")
+            print("Received event:", post_data.get("event"))
             return JSONResponse(status_code=200, content={"bypass": True})
 
         valid_signature = retell.verify(
             json.dumps(post_data, separators=(",", ":"), ensure_ascii=False),
             api_key=str(os.environ["RETELL_API_KEY"]),
-            signature=str(request.headers.get("X-Retell-Signature")),
+            signature=signature_header,
         )
+
         if not valid_signature:
-            print(
-                "Received Unauthorized",
-                post_data["event"],
-                post_data["data"]["call_id"],
-            )
+            print("Received Unauthorized", post_data.get("event"), post_data.get("data", {}).get("call_id"))
             return JSONResponse(status_code=401, content={"message": "Unauthorized"})
-        if post_data["event"] == "call_started":
-            print("Call started event", post_data["data"]["call_id"])
-        elif post_data["event"] == "call_ended":
-            print("Call ended event", post_data["data"]["call_id"])
-        elif post_data["event"] == "call_analyzed":
-            print("Call analyzed event", post_data["data"]["call_id"])
+
+        # Handle known events
+        event_type = post_data.get("event")
+        call_id = post_data.get("data", {}).get("call_id")
+
+        if event_type == "call_started":
+            print("Call started event", call_id)
+        elif event_type == "call_ended":
+            print("Call ended event", call_id)
+        elif event_type == "call_analyzed":
+            print("Call analyzed event", call_id)
         else:
-            print("Unknown event", post_data["event"])
+            print("Unknown event", event_type)
+
         return JSONResponse(status_code=200, content={"received": True})
+
     except Exception as err:
         print(f"Error in webhook: {err}")
-        return JSONResponse(
-            status_code=500, content={"message": "Internal Server Error"}
-        )
+        return JSONResponse(status_code=500, content={"message": "Internal Server Error"})
+
 
 
 # Start a websocket server to exchange text input and output with Retell server. Retell server
