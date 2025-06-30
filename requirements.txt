@@ -27,3 +27,4 @@ retell-sdk==4.0.0
 fastapi==0.100.1
 uvicorn==0.21.1
 python-multipart==0.0.9
+slowapi==0.1.5
