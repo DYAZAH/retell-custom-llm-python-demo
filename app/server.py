@@ -1,3 +1,16 @@
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+
+def rate_limit_if_unverified(request: Request):
+    signature = request.headers.get("X-Retell-Signature")
+    # Only throttle if missing signature
+    if not signature:
+        # Trigger SlowAPI to enforce rate limiting
+        return get_remote_address(request)
+    # Otherwise, bypass limiter
+    return None
+
 import json
 import os
 import asyncio
@@ -14,11 +27,16 @@ from .llm import LlmClient  # or use .llm_with_func_calling
 
 load_dotenv(override=True)
 app = FastAPI()
+limiter = Limiter(key_func=rate_limit_if_unverified)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 retell = Retell(api_key=os.environ["RETELL_API_KEY"])
 
 
 # Handle webhook from Retell server. This is used to receive events from Retell server.
 # Including call_started, call_ended, call_analyzed
+@limiter.limit("30/second")
 @app.post("/webhook")
 async def handle_webhook(request: Request):
     try:
